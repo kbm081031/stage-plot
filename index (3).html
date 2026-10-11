@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="ko" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StageCraft - Professional Stage Plot & Cable Patch Builder</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: {
+                            900: '#0b0f19',
+                            800: '#111827',
+                            700: '#1f2937',
+                            600: '#374151',
+                            500: '#4b5563'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- html2canvas for export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Pretendard', sans-serif; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #111827; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+        .stage-grid {
+            background-image: linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+                              linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+            background-size: 30px 30px;
+        }
+        .gear-item {
+            will-change: transform, left, top;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .cable-line {
+            stroke-dasharray: 6;
+            animation: dash 25s linear infinite;
+        }
+        @keyframes dash {
+            to { stroke-dashoffset: -1000; }
+        }
+    </style>
+</head>
+<body class="bg-dark-900 text-slate-100 h-screen flex flex-col overflow-hidden select-none">
+
+    <header class="bg-dark-800 border-b border-dark-700 px-4 py-2.5 flex items-center justify-between shrink-0 z-30 shadow-lg">
+        <div class="flex items-center space-x-3">
+            <div class="bg-indigo-600 text-white p-2 rounded-xl shadow-md flex items-center justify-center">
+                <i class="fa-solid fa-sliders text-lg"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-sm tracking-wide text-white flex items-center gap-2">
+                    StageCraft <span class="text-[10px] bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full border border-indigo-500/30">Pro Patch & Stage</span>
+                </h1>
+                <input type="text" id="projectNameInput" value="프로페셔널 라이브 콘서트 무대 & 패치 플롯" class="bg-transparent text-xs text-slate-400 focus:text-white focus:outline-none border-b border-transparent focus:border-indigo-500 transition px-1 py-0.5 w-72">
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-2 bg-dark-900/60 px-3 py-1.5 rounded-xl border border-dark-700">
+            <button onclick="toggleCableMode()" id="cableModeBtn" class="bg-dark-700 hover:bg-dark-600 text-slate-300 text-xs font-semibold px-3 py-1.5 rounded-lg border border-dark-600 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-plug-circle-plus text-indigo-400"></i> <span id="cableModeText">케이블 연결 모드: 꺼짐</span>
+            </button>
+            <div class="h-4 w-[1px] bg-dark-700 mx-1"></div>
+            <button onclick="adjustZoom(-0.1)" class="w-7 h-7 bg-dark-700 hover:bg-dark-600 text-slate-300 rounded-lg flex items-center justify-center text-xs" title="축소"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+            <span id="zoomLevelDisplay" class="text-xs text-slate-400 font-mono w-12 text-center">100%</span>
+            <button onclick="adjustZoom(0.1)" class="w-7 h-7 bg-dark-700 hover:bg-dark-600 text-slate-300 rounded-lg flex items-center justify-center text-xs" title="확대"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+        </div>
+
+        <div class="flex items-center space-x-2">
+            <div class="relative">
+                <select id="presetSelect" class="bg-dark-700 hover:bg-dark-600 text-slate-200 text-xs font-medium px-3 py-2 rounded-xl border border-dark-600 focus:outline-none cursor-pointer">
+                    <option value="" disabled selected>📂 템플릿 불러오기...</option>
+                    <option value="fullBand">🎸 밴드 + FOH 콘솔 & 스테이지박스</option>
+                    <option value="acousticDuo">🎤 어쿠스틱 듀오</option>
+                    <option value="djSet">🎧 DJ / 일렉트로닉 셋업</option>
+                </select>
+            </div>
+            <button onclick="saveProject()" class="bg-dark-700 hover:bg-dark-600 text-slate-200 text-xs font-medium px-3 py-2 rounded-xl border border-dark-600 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-floppy-disk text-indigo-400"></i> 저장
+            </button>
+            <button onclick="openLoadModal()" class="bg-dark-700 hover:bg-dark-600 text-slate-200 text-xs font-medium px-3 py-2 rounded-xl border border-dark-600 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-folder-open text-amber-400"></i> 불러오기
+            </button>
+            <button onclick="exportPNG()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-3 py-2 rounded-xl transition flex items-center gap-1.5 shadow-md">
+                <i class="fa-solid fa-download"></i> PNG 내보내기
+            </button>
+            <button onclick="clearStage()" class="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-medium px-3 py-2 rounded-xl border border-rose-500/20 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-trash-can"></i> 초기화
+            </button>
+        </div>
+    </header>
+
+    <div class="flex-1 flex overflow-hidden relative">
+
+        <!-- Left Sidebar: Equipment Catalog -->
+        <aside class="w-80 bg-dark-800 border-r border-dark-700 flex flex-col z-20 shrink-0">
+            <div class="p-3.5 border-b border-dark-700 bg-dark-800/90">
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-toolbox text-indigo-400"></i> 장비 및 콘솔 카탈로그
+                </h2>
+                <p class="text-[11px] text-slate-500 mt-0.5">장비를 클릭하면 무대 중앙에 배치됩니다</p>
+            </div>
+
+            <div class="p-3 border-b border-dark-700 space-y-2">
+                <div class="relative">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-slate-400"></i>
+                    <input type="text" id="catalogSearch" placeholder="장비 검색..." oninput="filterCatalog()" class="w-full bg-dark-900 text-xs text-slate-200 pl-8 pr-3 py-2 rounded-xl border border-dark-700 focus:outline-none focus:border-indigo-500 transition">
+                </div>
+                <div class="grid grid-cols-4 gap-1 bg-dark-900 p-1 rounded-xl text-[11px] font-medium border border-dark-700">
+                    <button onclick="switchCatalogTab('all')" id="tab-all" class="py-1.5 rounded-lg bg-indigo-600 text-white transition text-center">전체</button>
+                    <button onclick="switchCatalogTab('consoles')" id="tab-consoles" class="py-1.5 rounded-lg text-slate-400 hover:text-white transition text-center">콘솔</button>
+                    <button onclick="switchCatalogTab('audio')" id="tab-audio" class="py-1.5 rounded-lg text-slate-400 hover:text-white transition text-center">음향</button>
+                    <button onclick="switchCatalogTab('instruments')" id="tab-instruments" class="py-1.5 rounded-lg text-slate-400 hover:text-white transition text-center">악기</button>
+                </div>
+            </div>
+
+            <div id="catalogList" class="flex-1 overflow-y-auto p-3 space-y-3">
+                <!-- Populated via JS -->
+            </div>
+        </aside>
+
+        <!-- Center: Interactive Stage Canvas with Smooth RAF Dragging -->
+        <main class="flex-1 bg-dark-900 flex flex-col relative overflow-hidden">
+            <div class="absolute top-4 left-4 z-20 flex items-center gap-3 bg-dark-800/90 backdrop-blur border border-dark-700 px-3 py-2 rounded-xl shadow-xl text-xs">
+                <div class="flex items-center gap-2">
+                    <span class="text-slate-400 font-medium">무대 규격:</span>
+                    <select id="stageWidthSelect" onchange="updateStageSize()" class="bg-dark-700 text-slate-200 px-2 py-1 rounded-lg border border-dark-600 focus:outline-none">
+                        <option value="6">6m 너비</option>
+                        <option value="8" selected>8m 너비</option>
+                        <option value="10">10m 너비</option>
+                        <option value="12">12m 너비</option>
+                    </select>
+                    <span class="text-slate-500">×</span>
+                    <select id="stageDepthSelect" onchange="updateStageSize()" class="bg-dark-700 text-slate-200 px-2 py-1 rounded-lg border border-dark-600 focus:outline-none">
+                        <option value="4">4m 깊이</option>
+                        <option value="6" selected>6m 깊이</option>
+                        <option value="8">8m 깊이</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="stageViewport" class="flex-1 overflow-auto p-12 flex items-center justify-center relative cursor-grab active:cursor-grabbing">
+                <div id="stageCanvasWrapper" class="relative transition-transform duration-100 origin-center" style="transform: scale(1);">
+                    <div id="stageCanvas" class="stage-grid bg-dark-800/70 border-2 border-indigo-500/40 rounded-2xl relative shadow-2xl" style="width: 800px; height: 600px;">
+                        
+                        <div class="absolute top-0 left-0 right-0 h-7 bg-dark-700/90 border-b border-indigo-500/30 flex items-center justify-center text-[10px] tracking-widest text-slate-400 uppercase font-bold rounded-t-2xl">
+                            백스테이지 / 백라인 월 (Backstage)
+                        </div>
+
+                        <!-- SVG Layer for Cable Connections -->
+                        <svg id="cableSvgOverlay" class="absolute inset-0 w-full h-full pointer-events-none z-0">
+                            <!-- Cable bezier curves rendered here -->
+                        </svg>
+
+                        <div class="absolute bottom-0 left-0 right-0 py-2 bg-gradient-to-t from-indigo-950/90 to-indigo-900/50 border-t border-indigo-500/40 flex items-center justify-center gap-2 text-indigo-300 text-xs font-bold uppercase tracking-widest shadow-inner rounded-b-2xl">
+                            <i class="fa-solid fa-volume-high text-indigo-400"></i> 객석 / 무대 앞쪽 (Front of Stage / Audience) <i class="fa-solid fa-volume-high text-indigo-400"></i>
+                        </div>
+
+                        <div id="stageElementsContainer" class="absolute inset-x-0 top-7 bottom-8 pointer-events-auto z-10">
+                            <!-- Items injected dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <aside class="w-96 bg-dark-800 border-l border-dark-700 flex flex-col z-20 shrink-0">
+            <div class="flex border-b border-dark-700 bg-dark-800/90 p-2 gap-1">
+                <button onclick="switchRightTab('properties')" id="rtab-properties" class="flex-1 py-1.5 px-2 rounded-xl text-[11px] font-semibold bg-indigo-600 text-white transition flex items-center justify-center gap-1 shadow-sm">
+                    <i class="fa-solid fa-sliders"></i> 속성
+                </button>
+                <button onclick="switchRightTab('inputs')" id="rtab-inputs" class="flex-1 py-1.5 px-2 rounded-xl text-[11px] font-semibold text-slate-400 hover:text-white transition flex items-center justify-center gap-1">
+                    <i class="fa-solid fa-list-ol"></i> 채널표
+                </button>
+                <button onclick="switchRightTab('cables')" id="rtab-cables" class="flex-1 py-1.5 px-2 rounded-xl text-[11px] font-semibold text-slate-400 hover:text-white transition flex items-center justify-center gap-1">
+                    <i class="fa-solid fa-network-wired"></i> 패치 (<span id="cableTabCount">0</span>)
+                </button>
+                <button onclick="switchRightTab('monitors')" id="rtab-monitors" class="flex-1 py-1.5 px-2 rounded-xl text-[11px] font-semibold text-slate-400 hover:text-white transition flex items-center justify-center gap-1">
+                    <i class="fa-solid fa-headphones"></i> 모니터
+                </button>
+            </div>
+
+            <!-- Tab 1: Properties Panel -->
+            <div id="panel-properties" class="flex-1 overflow-y-auto p-4 space-y-4">
+                <div id="noSelectionState" class="h-full flex flex-col items-center justify-center text-center text-slate-500 p-6">
+                    <div class="w-12 h-12 rounded-2xl bg-dark-700 flex items-center justify-center text-slate-400 mb-3 text-lg shadow">
+                        <i class="fa-solid fa-hand-pointer"></i>
+                    </div>
+                    <p class="text-xs font-medium text-slate-300">선택된 장비가 없습니다</p>
+                    <p class="text-[11px] text-slate-500 mt-1">무대 위의 장비를 클릭하여 라벨, 채널, 연결 상태 및 메모를 편집하세요.</p>
+                </div>
+
+                <div id="selectionState" class="hidden space-y-4">
+                    <div class="flex items-center justify-between pb-3 border-b border-dark-700">
+                        <div class="flex items-center gap-2.5">
+                            <div id="propItemIcon" class="w-9 h-9 rounded-xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center border border-indigo-500/30 text-base shadow"></div>
+                            <div>
+                                <h3 id="propItemTypeName" class="text-xs font-bold text-white"></h3>
+                                <p class="text-[10px] text-slate-400 font-mono">ID: <span id="propItemId"></span></p>
+                            </div>
+                        </div>
+                        <button onclick="deleteSelectedElement()" class="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 p-2 rounded-xl border border-rose-500/20 transition text-xs" title="장비 삭제">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">장비 이름 / 라벨</label>
+                            <input type="text" id="propLabel" oninput="updateSelectedProperty('label', this.value)" class="w-full bg-dark-900 text-xs text-slate-200 px-3 py-2 rounded-xl border border-dark-700 focus:outline-none focus:border-indigo-500 transition">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">입력 채널 번호</label>
+                                <input type="number" id="propChannel" min="1" max="64" oninput="updateSelectedProperty('channel', parseInt(this.value) || '')" class="w-full bg-dark-900 text-xs text-slate-200 px-3 py-2 rounded-xl border border-dark-700 focus:outline-none focus:border-indigo-500 transition">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">각도 (회전)</label>
+                                <select id="propRotation" onchange="updateSelectedProperty('rotation', parseInt(this.value))" class="w-full bg-dark-900 text-xs text-slate-200 px-3 py-2 rounded-xl border border-dark-700 focus:outline-none focus:border-indigo-500 transition">
+                                    <option value="0">0° (정면)</option>
+                                    <option value="45">45° 우측</option>
+                                    <option value="90">90° 우측</option>
+                                    <option value="180">180° 후면</option>
+                                    <option value="270">270° 좌측</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">모니터 믹스 (IEM / 웨지)</label>
+                            <input type="text" id="propMonitor" placeholder="예: Mix 1 (Vocals), IEM L" oninput="updateSelectedProperty('monitor', this.value)" class="w-full bg-dark-900 text-xs text-slate-200 px-3 py-2 rounded-xl border border-dark-700 focus:outline-none focus:border-indigo-500 transition">
+                        </div>
+
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">마이크 / 연결 노트</label>
+                            <textarea id="propNotes" rows="3" placeholder="예: Shure SM57, 48V 팬텀 전원 필요" oninput="updateSelectedProperty('notes', this.value)" class="w-full bg-dark-900 text-xs text-slate-200 p-3 rounded-xl border border-dark-700 focus:outline-none focus:border-indigo-500 transition resize-none"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 2: Input List Panel -->
+            <div id="panel-inputs" class="hidden flex-1 overflow-y-auto p-4 space-y-3">
+                <div class="flex items-center justify-between pb-2 border-b border-dark-700">
+                    <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">자동 생성 입력 채널표</h3>
+                    <span id="inputCountBadge" class="text-[10px] bg-indigo-500/20 text-indigo-400 px-2.5 py-0.5 rounded-full border border-indigo-500/30">0 채널</span>
+                </div>
+                <div class="overflow-x-auto rounded-xl border border-dark-700">
+                    <table class="w-full text-left text-xs text-slate-300">
+                        <thead class="bg-dark-900 text-slate-400 font-semibold border-b border-dark-700">
+                            <tr>
+                                <th class="p-2.5 w-12 text-center">Ch</th>
+                                <th class="p-2.5">소스 / 장비</th>
+                                <th class="p-2.5">모니터</th>
+                                <th class="p-2.5">비고</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inputListTableBody" class="divide-y divide-dark-700">
+                            <!-- Populated via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tab 3: Cable Patch List Panel -->
+            <div id="panel-cables" class="hidden flex-1 overflow-y-auto p-4 space-y-3">
+                <div class="flex items-center justify-between pb-2 border-b border-dark-700">
+                    <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">케이블 패치 / 연결 리스트</h3>
+                    <span id="cableCountBadge" class="text-[10px] bg-emerald-500/20 text-emerald-400 px-2.5 py-0.5 rounded-full border border-emerald-500/30">0 링크</span>
+                </div>
+                <div class="bg-dark-900/60 p-2.5 rounded-xl border border-dark-700 text-[11px] text-slate-400">
+                    💡 <b class="text-slate-200">케이블 연결 방법:</b> 상단의 <span class="text-indigo-400 font-semibold">"케이블 연결 모드"</span>를 켠 후, 연결할 장비 A를 클릭하고 장비 B를 클릭하면 실시간 선으로 연결됩니다.
+                </div>
+                <div id="cableListContainer" class="space-y-2">
+                    <!-- Populated via JS -->
+                </div>
+            </div>
+
+            <!-- Tab 4: Monitor List Panel -->
+            <div id="panel-monitors" class="hidden flex-1 overflow-y-auto p-4 space-y-3">
+                <div class="flex items-center justify-between pb-2 border-b border-dark-700">
+                    <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">모니터 및 IEM 믹스</h3>
+                    <span id="monitorCountBadge" class="text-[10px] bg-emerald-500/20 text-emerald-400 px-2.5 py-0.5 rounded-full border border-emerald-500/30">0 믹스</span>
+                </div>
+                <div id="monitorListContent" class="space-y-2">
+                    <!-- Populated via JS -->
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <div id="loadModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-dark-800 border border-dark-700 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+            <div class="p-4 border-b border-dark-700 flex items-center justify-between">
+                <h3 class="font-bold text-sm text-white flex items-center gap-2">
+                    <i class="fa-solid fa-folder-open text-amber-400"></i> 저장된 무대 및 패치 플롯
+                </h3>
+                <button onclick="closeLoadModal()" class="text-slate-400 hover:text-white transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div id="savedProjectsList" class="p-4 overflow-y-auto space-y-2 flex-1">
+                <!-- Saved items rendered here -->
+            </div>
+            <div class="p-4 border-t border-dark-700 bg-dark-900/50 flex justify-end">
+                <button onclick="closeLoadModal()" class="bg-dark-700 hover:bg-dark-600 text-slate-200 text-xs px-4 py-2 rounded-xl transition font-medium">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-6 right-6 bg-dark-800 border border-indigo-500/40 text-slate-100 text-xs px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 transform translate-y-20 opacity-0 transition-all duration-300 z-50">
+        <div id="toastIcon" class="text-indigo-400 text-base"><i class="fa-solid fa-circle-check"></i></div>
+        <div id="toastMessage" class="font-medium">작업이 완료되었습니다.</div>
+    </div>
+
+    <script>
+        const catalogItems = [
+            { id: 'foh-console', category: 'consoles', name: 'FOH 믹싱 콘솔', defaultLabel: 'FOH Console', icon: 'fa-sliders', defaultCh: null, color: 'bg-indigo-700', desc: '메인 사운드 믹서 (예: DiGiCo, Yamaha)' },
+            { id: 'monitor-console', category: 'consoles', name: '모니터 믹싱 콘솔', defaultLabel: 'Mon Console', icon: 'fa-desktop', defaultCh: null, color: 'bg-indigo-800', desc: '무대 모니터 전용 믹서' },
+            { id: 'stagebox', category: 'consoles', name: '스테이지 박스 (I/O)', defaultLabel: 'Stage Box', icon: 'fa-network-wired', defaultCh: null, color: 'bg-blue-700', desc: '디지털 멀티코어 / 스테이지 I/O' },
+            { id: 'power-distro', category: 'consoles', name: '파워 디스트리뷰터', defaultLabel: 'Power Distro', icon: 'fa-bolt', defaultCh: null, color: 'bg-amber-500', desc: '무대 전원 분배기' },
+            
+            { id: 'lead-vox', category: 'audio', name: '보컬 마이크', defaultLabel: 'Lead Vocal', icon: 'fa-microphone', defaultCh: 1, color: 'bg-indigo-600', desc: '유/무선 보컬 마이크' },
+            { id: 'backing-vox', category: 'audio', name: '코러스 마이크', defaultLabel: 'Backing Vox', icon: 'fa-microphone-lines', defaultCh: 2, color: 'bg-indigo-600', desc: '코러스용 마이크' },
+            { id: 'wedge', category: 'audio', name: '모니터 스피커 (웨지)', defaultLabel: 'Wedge Monitor', icon: 'fa-volume-high', defaultCh: null, color: 'bg-emerald-600', desc: '바닥형 플로어 웨지' },
+            { id: 'iem', category: 'audio', name: 'IEM 인이어 송신기', defaultLabel: 'IEM Transmitter', icon: 'fa-headphones', defaultCh: null, color: 'bg-emerald-700', desc: '무선 인이어 모니터' },
+            { id: 'di-box', category: 'audio', name: 'DI 박스', defaultLabel: 'DI Box', icon: 'fa-box', defaultCh: null, color: 'bg-blue-600', desc: '직접 DI 신호 변환' },
+            { id: 'subwoofer', category: 'audio', name: '스테이지 서브우퍼', defaultLabel: 'Stage Sub', icon: 'fa-speaker', defaultCh: null, color: 'bg-slate-700', desc: '드럼/저음용 서브스피커' },
+            { id: 'guitar-amp', category: 'audio', name: '기타 앰프', defaultLabel: 'Guitar Amp', icon: 'fa-amplifier', defaultCh: 3, color: 'bg-slate-700', desc: '일렉기타 앰프 캐비닛' },
+            { id: 'bass-amp', category: 'audio', name: '베이스 앰프', defaultLabel: 'Bass Amp', icon: 'fa-amplifier', defaultCh: 4, color: 'bg-slate-700', desc: '베이스 기타 앰프' },
+
+            { id: 'elec-guit', category: 'instruments', name: '일렉트릭 기타', defaultLabel: 'Electric Guitar', icon: 'fa-guitar', defaultCh: 3, color: 'bg-amber-600', desc: '일렉 기타 연주자' },
+            { id: 'ac-guit', category: 'instruments', name: '어쿠스틱 기타', defaultLabel: 'Acoustic Guitar', icon: 'fa-guitar', defaultCh: 4, color: 'bg-amber-700', desc: '통기타 및 통신' },
+            { id: 'bass-guit', category: 'instruments', name: '베이스 기타', defaultLabel: 'Bass Guitar', icon: 'fa-guitar', defaultCh: 5, color: 'bg-orange-600', desc: '베이스 기타 연주자' },
+            { id: 'keyboard', category: 'instruments', name: '신디사이저 / 건반', defaultLabel: 'Keyboard', icon: 'fa-keyboard', defaultCh: 6, color: 'bg-cyan-600', desc: '건반 악기' },
+            { id: 'drums', category: 'instruments', name: '드럼 킷', defaultLabel: 'Drum Kit', icon: 'fa-drum', defaultCh: 7, color: 'bg-rose-600', desc: '어쿠스틱 드럼 세트' },
+            { id: 'percussion', category: 'instruments', name: '퍼커션', defaultLabel: 'Percussion', icon: 'fa-drum-steelpan', defaultCh: 12, color: 'bg-rose-700', desc: '봉고, 콩가 등 타악기' },
+            { id: 'horns', category: 'instruments', name: '브라스 / 관악기', defaultLabel: 'Horns / Sax', icon: 'fa-saxophone', defaultCh: 13, color: 'bg-yellow-600', desc: '색소폰, 트럼펫 등' },
+            { id: 'drum-riser', category: 'instruments', name: '드럼 라이저 (단상)', defaultLabel: 'Drum Riser', icon: 'fa-layer-group', defaultCh: null, color: 'bg-purple-600', desc: '드럼용 무대 단상 (2x2m)' },
+            { id: 'stool', category: 'instruments', name: '연주자 의자 / 스툴', defaultLabel: 'Stool', icon: 'fa-chair', defaultCh: null, color: 'bg-zinc-600', desc: '의자 또는 스툴' }
+        ];
+
+        let stageState = {
+            projectName: "프로페셔널 라이브 콘서트 무대 & 패치 플롯",
+            width: 8,
+            depth: 6,
+            items: [],
+            connections: []
+        };
+
+        let selectedItemId = null;
+        let activeCatalogTab = 'all';
+        let activeRightTab = 'properties';
+        let zoomLevel = 1.0;
+        let isCableMode = false;
+        let cableSourceId = null;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            renderCatalog();
+            setupPresetListener();
+            loadProjectFromLocalStorage('StageCraft_AutoSave');
+            renderStage();
+            updateInputList();
+            updateCableList();
+            updateMonitorList();
+
+            document.getElementById('projectNameInput').addEventListener('input', (e) => {
+                stageState.projectName = e.target.value;
+            });
+        });
+
+        function showToast(message, iconClass = "fa-circle-check") {
+            const toast = document.getElementById('toast');
+            const msg = document.getElementById('toastMessage');
+            const icon = document.getElementById('toastIcon');
+            msg.textContent = message;
+            icon.innerHTML = `<i class="fa-solid ${iconClass}"></i>`;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        function renderCatalog(filter = '') {
+            const listContainer = document.getElementById('catalogList');
+            listContainer.innerHTML = '';
+
+            const filtered = catalogItems.filter(item => {
+                const matchesTab = activeCatalogTab === 'all' || item.category === activeCatalogTab;
+                const matchesSearch = item.name.toLowerCase().includes(filter.toLowerCase()) || item.desc.toLowerCase().includes(filter.toLowerCase());
+                return matchesTab && matchesSearch;
+            });
+
+            if (filtered.length === 0) {
+                listContainer.innerHTML = `<div class="text-center py-6 text-slate-500 text-xs">검색된 장비가 없습니다</div>`;
+                return;
+            }
+
+            filtered.forEach(item => {
+                const el = document.createElement('div');
+                el.className = `flex items-center justify-between p-3 rounded-xl bg-dark-900 border border-dark-700 hover:border-indigo-500/50 hover:bg-dark-700/50 transition cursor-pointer group`;
+                el.onclick = () => addEquipmentToStage(item);
+                el.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl ${item.color} text-white flex items-center justify-center shadow-md text-xs group-hover:scale-105 transition">
+                            <i class="fa-solid ${item.icon}"></i>
+                        </div>
+                        <div>
+                            <h4 class="text-xs font-semibold text-slate-200 group-hover:text-white transition">${item.name}</h4>
+                            <p class="text-[10px] text-slate-400 line-clamp-1">${item.desc}</p>
+                        </div>
+                    </div>
+                    <div class="w-6 h-6 rounded-full bg-dark-800 text-indigo-400 flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow">
+                        <i class="fa-solid fa-plus text-[10px]"></i>
+                    </div>
+                `;
+                listContainer.appendChild(el);
+            });
+        }
+
+        function filterCatalog() {
+            const query = document.getElementById('catalogSearch').value;
+            renderCatalog(query);
+        }
+
+        function switchCatalogTab(tab) {
+            activeCatalogTab = tab;
+            ['all', 'consoles', 'audio', 'instruments'].forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                if (t === tab) {
+                    btn.className = "py-1.5 rounded-lg bg-indigo-600 text-white transition text-center";
+                } else {
+                    btn.className = "py-1.5 rounded-lg text-slate-400 hover:text-white transition text-center";
+                }
+            });
+            renderCatalog(document.getElementById('catalogSearch').value);
+        }
+
+        function switchRightTab(tab) {
+            activeRightTab = tab;
+            ['properties', 'inputs', 'cables', 'monitors'].forEach(t => {
+                const btn = document.getElementById(`rtab-${t}`);
+                const panel = document.getElementById(`panel-${t}`);
+                if (t === tab) {
+                    btn.className = "flex-1 py-1.5 px-2 rounded-xl text-[11px] font-semibold bg-indigo-600 text-white transition flex items-center justify-center gap-1 shadow-sm";
+                    panel.classList.remove('hidden');
+                } else {
+                    btn.className = "flex-1 py-1.5 px-2 rounded-xl text-[11px] font-semibold text-slate-400 hover:text-white transition flex items-center justify-center gap-1";
+                    panel.classList.add('hidden');
+                }
+            });
+        }
+
+        function toggleCableMode() {
+            isCableMode = !isCableMode;
+            cableSourceId = null;
+            const btn = document.getElementById('cableModeBtn');
+            const txt = document.getElementById('cableModeText');
+            if (isCableMode) {
+                btn.className = "bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg border border-indigo-500 transition flex items-center gap-1.5 shadow-md";
+                txt.textContent = "케이블 연결 모드: 켜짐 (장비 선택 중)";
+                showToast("케이블 연결 모드가 켜졌습니다. 연결할 첫 번째 장비를 클릭하세요.");
+            } else {
+                btn.className = "bg-dark-700 hover:bg-dark-600 text-slate-300 text-xs font-semibold px-3 py-1.5 rounded-lg border border-dark-600 transition flex items-center gap-1.5";
+                txt.textContent = "케이블 연결 모드: 꺼짐";
+                showToast("케이블 연결 모드가 꺼졌습니다.");
+            }
+            renderStage();
+        }
+
+        function adjustZoom(delta) {
+            zoomLevel = Math.max(0.6, Math.min(1.6, zoomLevel + delta));
+            document.getElementById('zoomLevelDisplay').textContent = Math.round(zoomLevel * 100) + "%";
+            document.getElementById('stageCanvasWrapper').style.transform = `scale(${zoomLevel})`;
+        }
+
+        function addEquipmentToStage(catalogItem) {
+            const newItem = {
+                id: 'gear_' + Math.random().toString(36).substring(2, 9),
+                typeId: catalogItem.id,
+                name: catalogItem.name,
+                icon: catalogItem.icon,
+                color: catalogItem.color,
+                label: catalogItem.defaultLabel,
+                channel: catalogItem.defaultCh,
+                monitor: '',
+                notes: '',
+                rotation: 0,
+                x: 45 + (Math.random() * 10 - 5),
+                y: 45 + (Math.random() * 10 - 5)
+            };
+
+            stageState.items.push(newItem);
+            renderStage();
+            selectItem(newItem.id);
+            autoSave();
+            showToast(`${catalogItem.name} 장비가 무대에 추가되었습니다.`);
+        }
+
+        function updateStageSize() {
+            stageState.width = parseInt(document.getElementById('stageWidthSelect').value);
+            stageState.depth = parseInt(document.getElementById('stageDepthSelect').value);
+            
+            const canvas = document.getElementById('stageCanvas');
+            canvas.style.width = (stageState.width * 100) + 'px';
+            canvas.style.height = (stageState.depth * 100) + 'px';
+            renderStage();
+            autoSave();
+        }
+
+        function renderStage() {
+            const container = document.getElementById('stageElementsContainer');
+            container.innerHTML = '';
+
+            stageState.items.forEach(item => {
+                const el = document.createElement('div');
+                const isSelected = item.id === selectedItemId;
+                const isCableSource = item.id === cableSourceId;
+
+                let borderStyle = isSelected ? 'border-white ring-4 ring-indigo-500/50 scale-105' : 'border-dark-700 hover:border-indigo-400';
+                if (isCableSource) {
+                    borderStyle = 'border-amber-400 ring-4 ring-amber-500/50 animate-pulse';
+                }
+
+                el.className = `gear-item absolute flex flex-col items-center justify-center cursor-move group ${isSelected || isCableSource ? 'z-30' : 'z-10'}`;
+                el.style.left = `${item.x}%`;
+                el.style.top = `${item.y}%`;
+                el.style.transform = `translate(-50%, -50%) rotate(${item.rotation}deg)`;
+                el.setAttribute('data-id', item.id);
+
+                el.innerHTML = `
+                    <div class="relative flex flex-col items-center">
+                        ${item.channel ? `<span class="absolute -top-3 -right-3 bg-indigo-600 text-white text-[9px] font-bold px-1.5 py-0.2 rounded-full shadow border border-indigo-400">Ch ${item.channel}</span>` : ''}
+                        
+                        <div class="w-12 h-12 rounded-2xl ${item.color} text-white flex items-center justify-center shadow-lg border-2 ${borderStyle} transition-all text-base">
+                            <i class="fa-solid ${item.icon}"></i>
+                        </div>
+
+                        <div class="mt-1 bg-dark-800/95 backdrop-blur text-slate-200 text-[10px] font-semibold px-2 py-0.5 rounded-lg border ${isSelected ? 'border-indigo-500 text-white' : 'border-dark-700'} shadow text-center max-w-[110px] truncate pointer-events-none">
+                            ${item.label}
+                        </div>
+                    </div>
+                `;
+
+                let isDragging = false;
+                let startX, startY;
+                let rafId = null;
+
+                el.addEventListener('mousedown', (e) => {
+                    e.stopPropagation();
+                    
+                    if (isCableMode) {
+                        if (!cableSourceId) {
+                            cableSourceId = item.id;
+                            showToast(`출발지 "${item.label}" 선택됨. 연결할 대상 장비를 클릭하세요.`);
+                            renderStage();
+                        } else if (cableSourceId === item.id) {
+                            cableSourceId = null;
+                            showToast("케이블 연결이 취소되었습니다.");
+                            renderStage();
+                        } else {
+                            const exists = stageState.connections.some(c => (c.sourceId === cableSourceId && c.targetId === item.id) || (c.sourceId === item.id && c.targetId === cableSourceId));
+                            if (!exists) {
+                                stageState.connections.push({
+                                    id: 'cable_' + Math.random().toString(36).substring(2, 9),
+                                    sourceId: cableSourceId,
+                                    targetId: item.id,
+                                    cableType: 'XLR / 패치 케이블'
+                                });
+                                showToast(`"${getItemLabel(cableSourceId)}" ⟷ "${item.label}" 연결 완료!`);
+                            }
+                            cableSourceId = null;
+                            renderStage();
+                            autoSave();
+                        }
+                        return;
+                    }
+
+                    selectItem(item.id);
+                    isDragging = true;
+                    startX = e.clientX;
+                    startY = e.clientY;
+
+                    const onMouseMove = (moveEvent) => {
+                        if (!isDragging) return;
+                        const dx = moveEvent.clientX - startX;
+                        const dy = moveEvent.clientY - startY;
+                        startX = moveEvent.clientX;
+                        startY = moveEvent.clientY;
+
+                        const canvasRect = document.getElementById('stageCanvas').getBoundingClientRect();
+                        let newX = item.x + (dx / canvasRect.width) * 100;
+                        let newY = item.y + (dy / canvasRect.height) * 100;
+
+                        item.x = Math.max(4, Math.min(96, newX));
+                        item.y = Math.max(4, Math.min(96, newY));
+
+                        // Use requestAnimationFrame for silky smooth hardware-accelerated movement
+                        if (rafId) cancelAnimationFrame(rafId);
+                        rafId = requestAnimationFrame(() => {
+                            el.style.left = `${item.x}%`;
+                            el.style.top = `${item.y}%`;
+                            renderCableConnections();
+                        });
+                    };
+
+                    const onMouseUp = () => {
+                        isDragging = false;
+                        if (rafId) cancelAnimationFrame(rafId);
+                        window.removeEventListener('mousemove', onMouseMove);
+                        window.removeEventListener('mouseup', onMouseUp);
+                        autoSave();
+                    };
+
+                    window.addEventListener('mousemove', onMouseMove);
+                    window.addEventListener('mouseup', onMouseUp);
+                });
+
+                container.appendChild(el);
+            });
+
+            renderCableConnections();
+            updateInputList();
+            updateCableList();
+            updateMonitorList();
+        }
+
+        function getItemLabel(id) {
+            const it = stageState.items.find(i => i.id === id);
+            return it ? it.label : '장비';
+        }
+
+        function renderCableConnections() {
+            const svg = document.getElementById('cableSvgOverlay');
+            svg.innerHTML = '';
+
+            const canvas = document.getElementById('stageCanvas');
+            const cWidth = canvas.clientWidth;
+            const cHeight = canvas.clientHeight;
+
+            stageState.connections.forEach(conn => {
+                const src = stageState.items.find(i => i.id === conn.sourceId);
+                const tgt = stageState.items.find(i => i.id === conn.targetId);
+
+                if (src && tgt) {
+                    const x1 = (src.x / 100) * cWidth;
+                    const y1 = (src.y / 100) * cHeight;
+                    const x2 = (tgt.x / 100) * cWidth;
+                    const y2 = (tgt.y / 100) * cHeight;
+
+                    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                    const dx = Math.abs(x2 - x1) * 0.5;
+                    const d = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
+                    
+                    path.setAttribute("d", d);
+                    path.setAttribute("stroke", "#6366f1");
+                    path.setAttribute("stroke-width", "2.5");
+                    path.setAttribute("fill", "none");
+                    path.setAttribute("opacity", "0.75");
+                    path.setAttribute("class", "cable-line pointer-events-auto cursor-pointer hover:stroke-amber-400 transition");
+                    path.title = "클릭하여 케이블 삭제";
+                    path.onclick = (e) => {
+                        e.stopPropagation();
+                        stageState.connections = stageState.connections.filter(c => c.id !== conn.id);
+                        renderCableConnections();
+                        updateCableList();
+                        autoSave();
+                        showToast("케이블 연결이 해제되었습니다.", "fa-trash");
+                    };
+                    svg.appendChild(path);
+                }
+            });
+        }
+
+        function selectItem(id) {
+            selectedItemId = id;
+            const item = stageState.items.find(i => i.id === id);
+
+            const noSel = document.getElementById('noSelectionState');
+            const selState = document.getElementById('selectionState');
+
+            if (!item) {
+                noSel.classList.remove('hidden');
+                selState.classList.add('hidden');
+                renderStage();
+                return;
+            }
+
+            noSel.classList.add('hidden');
+            selState.classList.remove('hidden');
+
+            document.getElementById('propItemIcon').innerHTML = `<i class="fa-solid ${item.icon}"></i>`;
+            document.getElementById('propItemTypeName').textContent = item.name;
+            document.getElementById('propItemId').textContent = item.id;
+            document.getElementById('propLabel').value = item.label;
+            document.getElementById('propChannel').value = item.channel || '';
+            document.getElementById('propRotation').value = item.rotation;
+            document.getElementById('propMonitor').value = item.monitor || '';
+            document.getElementById('propNotes').value = item.notes || '';
+
+            renderStage();
+        }
+
+        function updateSelectedProperty(prop, value) {
+            if (!selectedItemId) return;
+            const item = stageState.items.find(i => i.id === selectedItemId);
+            if (item) {
+                item[prop] = value;
+                renderStage();
+                autoSave();
+            }
+        }
+
+        function deleteSelectedElement() {
+            if (!selectedItemId) return;
+            stageState.connections = stageState.connections.filter(c => c.sourceId !== selectedItemId && c.targetId !== selectedItemId);
+            stageState.items = stageState.items.filter(i => i.id !== selectedItemId);
+            selectedItemId = null;
+            selectItem(null);
+            showToast("선택한 장비가 삭제되었습니다.", "fa-trash");
+            autoSave();
+        }
+
+        function clearStage() {
+            if (stageState.items.length === 0) return;
+            stageState.items = [];
+            stageState.connections = [];
+            selectedItemId = null;
+            cableSourceId = null;
+            selectItem(null);
+            showToast("무대가 초기화되었습니다.", "fa-trash");
+            autoSave();
+        }
+
+        function updateInputList() {
+            const tbody = document.getElementById('inputListTableBody');
+            tbody.innerHTML = '';
+
+            const channeledItems = stageState.items
+                .filter(i => i.channel !== null && i.channel !== '' && !isNaN(i.channel))
+                .sort((a, b) => parseInt(a.channel) - parseInt(b.channel));
+
+            document.getElementById('inputCountBadge').textContent = `${channeledItems.length} 채널`;
+
+            if (channeledItems.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="text-center py-6 text-slate-500">할당된 채널이 없습니다. 속성 창에서 채널 번호를 지정하세요.</td></tr>`;
+                return;
+            }
+
+            channeledItems.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-dark-700/50 transition";
+                tr.innerHTML = `
+                    <td class="p-2.5 text-center font-bold text-indigo-400 bg-dark-900/40 font-mono">Ch ${item.channel}</td>
+                    <td class="p-2.5 font-medium text-white">${item.label}</td>
+                    <td class="p-2.5 text-slate-400">${item.monitor || '—'}</td>
+                    <td class="p-2.5 text-slate-400">${item.notes || '—'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function updateCableList() {
+            const container = document.getElementById('cableListContainer');
+            container.innerHTML = '';
+
+            document.getElementById('cableTabCount').textContent = stageState.connections.length;
+            document.getElementById('cableCountBadge').textContent = `${stageState.connections.length} 링크`;
+
+            if (stageState.connections.length === 0) {
+                container.innerHTML = `<div class="text-center py-6 text-slate-500 text-xs">연결된 케이블 패치가 없습니다.</div>`;
+                return;
+            }
+
+            stageState.connections.forEach(conn => {
+                const src = stageState.items.find(i => i.id === conn.sourceId);
+                const tgt = stageState.items.find(i => i.id === conn.targetId);
+
+                const itemDiv = document.createElement('div');
+                itemDiv.className = "bg-dark-900 border border-dark-700 p-2.5 rounded-xl flex items-center justify-between text-xs";
+                itemDiv.innerHTML = `
+                    <div class="flex items-center gap-2 truncate">
+                        <i class="fa-solid fa-plug text-indigo-400"></i>
+                        <span class="font-medium text-slate-200">${src ? src.label : '알수없음'}</span>
+                        <i class="fa-solid fa-arrow-right-long text-slate-500 text-[10px]"></i>
+                        <span class="font-medium text-slate-200">${tgt ? tgt.label : '알수없음'}</span>
+                    </div>
+                    <button onclick="removeConnection('${conn.id}')" class="text-rose-400 hover:text-rose-300 p-1"><i class="fa-solid fa-xmark"></i></button>
+                `;
+                container.appendChild(itemDiv);
+            });
+        }
+
+        function removeConnection(connId) {
+            stageState.connections = stageState.connections.filter(c => c.id !== connId);
+            renderStage();
+            showToast("케이블 연결이 해제되었습니다.", "fa-trash");
+            autoSave();
+        }
+
+        function updateMonitorList() {
+            const container = document.getElementById('monitorListContent');
+            container.innerHTML = '';
+
+            const monitoredItems = stageState.items.filter(i => i.monitor && i.monitor.trim() !== '');
+            const mixes = {};
+            monitoredItems.forEach(item => {
+                const mixName = item.monitor.trim();
+                if (!mixes[mixName]) mixes[mixName] = [];
+                mixes[mixName].push(item);
+            });
+
+            const mixKeys = Object.keys(mixes);
+            document.getElementById('monitorCountBadge').textContent = `${mixKeys.length} 믹스`;
+
+            if (mixKeys.length === 0) {
+                container.innerHTML = `<div class="text-center py-6 text-slate-500 text-xs">설정된 모니터 믹스가 없습니다.</div>`;
+                return;
+            }
+
+            mixKeys.forEach(mix => {
+                const items = mixes[mix];
+                const card = document.createElement('div');
+                card.className = "bg-dark-900 border border-dark-700 rounded-xl p-3 space-y-2";
+                card.innerHTML = `
+                    <div class="flex items-center justify-between border-b border-dark-700 pb-1.5">
+                        <h4 class="text-xs font-bold text-emerald-400 flex items-center gap-1.5"><i class="fa-solid fa-headphones"></i> ${mix}</h4>
+                        <span class="text-[10px] bg-dark-800 px-2 py-0.5 rounded text-slate-400 font-mono">${items.length}개 소스</span>
+                    </div>
+                    <ul class="space-y-1 text-xs text-slate-300">
+                        ${items.map(i => `<li class="flex items-center justify-between"><span>${i.label}</span> ${i.channel ? `<span class="text-[10px] text-slate-500 font-mono">Ch ${i.channel}</span>` : ''}</li>`).join('')}
+                    </ul>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function setupPresetListener() {
+            document.getElementById('presetSelect').addEventListener('change', (e) => {
+                const val = e.target.value;
+                loadPreset(val);
+                e.target.value = "";
+            });
+        }
+
+        function loadPreset(presetKey) {
+            if (presetKey === 'fullBand') {
+                stageState = {
+                    projectName: "풀 밴드 콘서트 & FOH 스테이지 플롯",
+                    width: 8,
+                    depth: 6,
+                    items: [
+                        { id: 'f1', typeId: 'foh-console', name: 'FOH 믹싱 콘솔', icon: 'fa-sliders', color: 'bg-indigo-700', label: 'FOH Console', channel: null, monitor: '', notes: '관객석 중앙 부스', rotation: 0, x: 50, y: 88 },
+                        { id: 'f2', typeId: 'stagebox', name: '스테이지 박스', icon: 'fa-network-wired', color: 'bg-blue-700', label: 'Stage Box (I/O)', channel: null, monitor: '', notes: '무대 우측 백라인', rotation: 0, x: 80, y: 25 },
+                        { id: 'f3', typeId: 'drums', name: '드럼 킷', icon: 'fa-drum', color: 'bg-rose-600', label: 'Drum Kit', channel: 1, monitor: 'Drum Fill', notes: 'BETA 91A / SM57', rotation: 0, x: 50, y: 25 },
+                        { id: 'f4', typeId: 'bass-guit', name: '베이스 기타', icon: 'fa-guitar', color: 'bg-orange-600', label: 'Bass DI', channel: 5, monitor: 'Mix 2', notes: 'Active DI Box', rotation: 0, x: 25, y: 35 },
+                        { id: 'f5', typeId: 'elec-guit', name: '일렉트릭 기타', icon: 'fa-guitar', color: 'bg-amber-600', label: 'Guitar 1', channel: 3, monitor: 'Mix 3', notes: 'SM57 on cab', rotation: 0, x: 20, y: 55 },
+                        { id: 'f6', typeId: 'lead-vox', name: '보컬 마이크', icon: 'fa-microphone', color: 'bg-indigo-600', label: 'Lead Vocal', channel: 2, monitor: 'Mix 1', notes: 'Wireless Handheld', rotation: 0, x: 50, y: 70 },
+                        { id: 'f7', typeId: 'power-distro', name: '파워 디스트리뷰터', icon: 'fa-bolt', color: 'bg-amber-500', label: 'Power Distro', channel: null, monitor: '', notes: '무대 전원 공급기', rotation: 0, x: 15, y: 25 }
+                    ],
+                    connections: [
+                        { id: 'c1', sourceId: 'f3', targetId: 'f2', cableType: 'XLR Snake' },
+                        { id: 'c2', sourceId: 'f4', targetId: 'f2', cableType: 'XLR' },
+                        { id: 'c3', sourceId: 'f6', targetId: 'f2', cableType: 'XLR' }
+                    ]
+                };
+            } else if (presetKey === 'acousticDuo') {
+                stageState = {
+                    projectName: "어쿠스틱 듀오 라이브 셋업",
+                    width: 6,
+                    depth: 4,
+                    items: [
+                        { id: 'ac1', typeId: 'foh-console', name: 'FOH 믹싱 콘솔', icon: 'fa-sliders', color: 'bg-indigo-700', label: 'Compact Mixer', channel: null, monitor: '', notes: '소형 아날로그 믹서', rotation: 0, x: 50, y: 85 },
+                        { id: 'ac2', typeId: 'lead-vox', name: '보컬 마이크', icon: 'fa-microphone', color: 'bg-indigo-600', label: 'Vocal 1', channel: 1, monitor: 'Mix 1', notes: 'SM58', rotation: 0, x: 40, y: 55 },
+                        { id: 'ac3', typeId: 'ac-guit', name: '어쿠스틱 기타', icon: 'fa-guitar', color: 'bg-amber-700', label: 'Acoustic 1', channel: 2, monitor: 'Mix 1', notes: 'DI Box', rotation: 0, x: 40, y: 35 },
+                        { id: 'ac4', typeId: 'backing-vox', name: '코러스 마이크', icon: 'fa-microphone-lines', color: 'bg-indigo-600', label: 'Vocal 2', channel: 3, monitor: 'Mix 2', notes: 'SM58', rotation: 0, x: 60, y: 55 },
+                        { id: 'ac5', typeId: 'ac-guit', name: '어쿠스틱 기타', icon: 'fa-guitar', color: 'bg-amber-700', label: 'Acoustic 2', channel: 4, monitor: 'Mix 2', notes: 'DI Box', rotation: 0, x: 60, y: 35 }
+                    ],
+                    connections: []
+                };
+            } else if (presetKey === 'djSet') {
+                stageState = {
+                    projectName: "일렉트로닉 DJ 세트 무대 플롯",
+                    width: 6,
+                    depth: 4,
+                    items: [
+                        { id: 'dj1', typeId: 'foh-console', name: 'FOH 믹싱 콘솔', icon: 'fa-sliders', color: 'bg-indigo-700', label: 'DJ Mixer (Pioneer)', channel: 1, monitor: 'Booth Out', notes: 'CDJ / DJM 900', rotation: 0, x: 50, y: 45 },
+                        { id: 'dj2', typeId: 'subwoofer', name: '스테이지 서브우퍼', icon: 'fa-speaker', color: 'bg-slate-700', label: 'Sub Left', channel: null, monitor: '', notes: 'PA Sub', rotation: 0, x: 25, y: 25 },
+                        { id: 'dj3', typeId: 'subwoofer', name: '스테이지 서브우퍼', icon: 'fa-speaker', color: 'bg-slate-700', label: 'Sub Right', channel: null, monitor: '', notes: 'PA Sub', rotation: 0, x: 75, y: 25 },
+                        { id: 'dj4', typeId: 'power-distro', name: '파워 디스트리뷰터', icon: 'fa-bolt', color: 'bg-amber-500', label: 'Stage Power', channel: null, monitor: '', notes: '전원 멀티탭', rotation: 0, x: 50, y: 20 }
+                    ],
+                    connections: []
+                };
+            }
+
+            document.getElementById('projectNameInput').value = stageState.projectName;
+            document.getElementById('stageWidthSelect').value = stageState.width;
+            document.getElementById('stageDepthSelect').value = stageState.depth;
+            updateStageSize();
+            renderStage();
+            showToast("선택한 템플릿을 불러왔습니다.");
+        }
+
+        function autoSave() {
+            localStorage.setItem('StageCraft_AutoSave', JSON.stringify(stageState));
+        }
+
+        function saveProject() {
+            const projects = JSON.parse(localStorage.getItem('StageCraft_SavedProjects') || '{}');
+            const key = stageState.projectName || '무대 플롯';
+            projects[key] = stageState;
+            localStorage.setItem('StageCraft_SavedProjects', JSON.stringify(projects));
+            showToast(`"${key}" 프로젝트가 저장되었습니다!`);
+        }
+
+        function loadProjectFromLocalStorage(storageKey) {
+            const data = localStorage.getItem(storageKey);
+            if (data) {
+                try {
+                    stageState = JSON.parse(data);
+                    if (!stageState.connections) stageState.connections = [];
+                    document.getElementById('projectNameInput').value = stageState.projectName;
+                    document.getElementById('stageWidthSelect').value = stageState.width || 8;
+                    document.getElementById('stageDepthSelect').value = stageState.depth || 6;
+                    updateStageSize();
+                } catch (e) {
+                    console.error("저장된 데이터를 불러오는 중 오류 발생");
+                }
+            }
+        }
+
+        function openLoadModal() {
+            const modal = document.getElementById('loadModal');
+            const listContainer = document.getElementById('savedProjectsList');
+            listContainer.innerHTML = '';
+
+            const projects = JSON.parse(localStorage.getItem('StageCraft_SavedProjects') || '{}');
+            const keys = Object.keys(projects);
+
+            if (keys.length === 0) {
+                listContainer.innerHTML = `<div class="text-center py-8 text-slate-500 text-xs">저장된 무대 플롯이 없습니다.</div>`;
+            } else {
+                keys.forEach(name => {
+                    const proj = projects[name];
+                    const item = document.createElement('div');
+                    item.className = "flex items-center justify-between p-3 rounded-xl bg-dark-900 border border-dark-700 hover:border-indigo-500 transition";
+                    item.innerHTML = `
+                        <div>
+                            <h4 class="text-xs font-bold text-white">${name}</h4>
+                            <p class="text-[10px] text-slate-400 mt-0.5">장비 ${proj.items.length}개, 케이블 ${proj.connections ? proj.connections.length : 0}개 링크 (${proj.width}m × ${proj.depth}m)</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="loadSavedProject('${name}')" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3 py-1.5 rounded-xl transition font-medium">불러오기</button>
+                            <button onclick="deleteSavedProject('${name}')" class="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 p-2 rounded-xl transition"><i class="fa-solid fa-trash-can text-xs"></i></button>
+                        </div>
+                    `;
+                    listContainer.appendChild(item);
+                });
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeLoadModal() {
+            document.getElementById('loadModal').classList.add('hidden');
+        }
+
+        function loadSavedProject(name) {
+            const projects = JSON.parse(localStorage.getItem('StageCraft_SavedProjects') || '{}');
+            if (projects[name]) {
+                stageState = projects[name];
+                if (!stageState.connections) stageState.connections = [];
+                document.getElementById('projectNameInput').value = stageState.projectName;
+                document.getElementById('stageWidthSelect').value = stageState.width || 8;
+                document.getElementById('stageDepthSelect').value = stageState.depth || 6;
+                updateStageSize();
+                renderStage();
+                closeLoadModal();
+                showToast(`"${name}" 플롯을 불러왔습니다.`);
+            }
+        }
+
+        function deleteSavedProject(name) {
+            const projects = JSON.parse(localStorage.getItem('StageCraft_SavedProjects') || '{}');
+            delete projects[name];
+            localStorage.setItem('StageCraft_SavedProjects', JSON.stringify(projects));
+            openLoadModal();
+            showToast(`"${name}" 플롯이 삭제되었습니다.`, "fa-trash");
+        }
+
+        function exportPNG() {
+            showToast("고해상도 무대 플롯 PNG 이미지를 생성 중입니다...");
+            const stageCanvas = document.getElementById('stageCanvas');
+            
+            const prevSelected = selectedItemId;
+            selectItem(null);
+
+            html2canvas(stageCanvas, {
+                backgroundColor: '#0b0f19',
+                scale: 2,
+                logging: false
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `${stageState.projectName.replace(/\s+/g, '_')}_stage_plot.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                showToast("무대 플롯 PNG 내보내기가 완료되었습니다!");
+                if (prevSelected) selectItem(prevSelected);
+            }).catch(err => {
+                console.error(err);
+                showToast("이미지 내보내기에 실패했습니다.", "fa-triangle-exclamation");
+                if (prevSelected) selectItem(prevSelected);
+            });
+        }
+    </script>
+</body>
+</html>
